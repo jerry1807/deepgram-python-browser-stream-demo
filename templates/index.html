@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Voice Agent Demo</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+    :root { font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial,sans-serif; color-scheme: light dark; }
+    body { margin:0; background:#0f1115; color:#e6e9ef; display:flex; flex-direction:column; min-height:100vh;}
+    header { padding:1rem 1.25rem; background:linear-gradient(135deg,#1f2630,#12161d 55%); border-bottom:1px solid #222c37;}
+    h1 { margin:0; font-size:1.25rem; letter-spacing:.5px;}
+    main { flex:1; display:grid; grid-template-columns:380px 1fr; gap:1rem; padding:1rem 1.25rem 2rem;}
+    @media (max-width:1000px){ main { grid-template-columns:1fr; } }
+    section { background:#161b23; border:1px solid #232d39; border-radius:10px; padding:.9rem 1rem 1.1rem; display:flex; flex-direction:column; gap:.85rem; min-height:0;}
+    h2 { margin:0 0 .25rem; font-size:.95rem; text-transform:uppercase; font-weight:600; letter-spacing:.07em; color:#8fb5ff;}
+    button { cursor:pointer; border:1px solid #2b3542; background:#203043; color:#fff; padding:.6rem 1rem; font-size:.85rem; border-radius:7px; font-weight:500; transition:background .18s,border-color .18s;}
+    button.primary { background:linear-gradient(90deg,#2563eb,#3b82f6); border-color:#3b82f6;}
+    button.primary:hover:not(:disabled){ background:linear-gradient(90deg,#1d4ed8,#2563eb); }
+    button.danger { background:#7f1d1d; border-color:#b91c1c;}
+    button.danger:hover:not(:disabled){ background:#991b1b;}
+    button:disabled { opacity:.45; cursor:not-allowed;}
+    select, option { background:#0f141b; color:#e6e9ef; border:1px solid #273445; border-radius:6px; font-size:.75rem; padding:.4rem .5rem; max-width:100%; }
+    label { font-size:.65rem; text-transform:uppercase; letter-spacing:.08em; color:#94b4d6; display:flex; flex-direction:column; gap:.35rem; }
+    .inline { display:flex; gap:.6rem; flex-wrap:wrap; align-items:flex-end;}
+    .status-line { font-size:.7rem; letter-spacing:.5px; font-weight:600; display:flex; gap:.4rem; align-items:center; color:#c8d3e0;}
+    .status-dot { width:9px; height:9px; border-radius:50%; background:#555; box-shadow:0 0 0 3px #111b25;}
+    .status-dot.active { background:#10b981;}
+    #conversation { flex:1; overflow-y:auto; background:#0f141b; border:1px solid #202a35; border-radius:8px; padding:.75rem .85rem; font-size:.8rem; line-height:1.3rem;}
+    .msg { margin:0 0 .55rem; white-space:pre-wrap;}
+    .msg.user { color:#f9fafb;} .msg.assistant { color:#a5d8ff;} .msg.system { color:#9ca3af; font-style:italic;}
+    .audio-indicator { width:100%; height:34px; background:#0c1218; border:1px solid #1d2733; border-radius:8px; display:flex; align-items:center; padding:0 .75rem; gap:.65rem; font-size:.7rem;}
+    .level-bar { flex:1; height:10px; background:#1e2935; border-radius:4px; position:relative; overflow:hidden;}
+    .level-bar span { position:absolute; inset:0; background:linear-gradient(90deg,#2563eb,#3b82f6); width:0%; border-radius:inherit; transition:width .08s linear;}
+    pre#log { background:#0f141b; border:1px solid #202a35; border-radius:8px; padding:.6rem .75rem; max-height:220px; overflow-y:auto; font-size:.62rem; line-height:.95rem; margin:0;}
+    footer { text-align:center; font-size:.6rem; opacity:.5; padding:.7rem 1rem 1.1rem; letter-spacing:.06em;}
+    .row { display:flex; gap:.6rem; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+<header><h1>Voice Agent Demo</h1></header>
+
+<main>
+    <section style="gap:1.1rem;">
+        <div>
+            <h2>Setup & Controls</h2>
+            <div class="row">
+                <button id="initBtn" class="primary">Initialize Audio</button>
+                <button id="startBtn" disabled>Start Agent</button>
+                <button id="stopBtn" class="danger" disabled>Stop</button>
+            </div>
+            <div class="status-line">
+                <div id="connDot" class="status-dot"></div>
+                <span id="connText">Disconnected</span>
+            </div>
+        </div>
+
+        <div>
+            <h2>Device Selection</h2>
+            <div class="row" style="flex-direction:column;align-items:stretch;">
+                <label>
+                    Input Device
+                    <select id="inputSelect" disabled>
+                        <option value="">(Initialize first)</option>
+                    </select>
+                </label>
+                <label>
+                    Output Device
+                    <select id="outputSelect" disabled>
+                        <option value="">(Initialize first)</option>
+                    </select>
+                </label>
+            </div>
+            <p style="font-size:.6rem; margin:.4rem 0 0; color:#7d93aa;">
+                Change mic/output anytime; capture restarts seamlessly.<br/>
+                Output routing requires a supported browser (Chrome-based).
+            </p>
+        </div>
+
+        <div>
+            <h2>Microphone Level</h2>
+            <div class="audio-indicator">
+                <div class="level-bar"><span id="micLevel"></span></div>
+                <div id="micInfo">Idle</div>
+            </div>
+        </div>
+
+        <div>
+            <h2>Log</h2>
+            <pre id="log"></pre>
+        </div>
+
+        {% if sample_data %}
+        <div>
+            <h2>Sample Data</h2>
+            <div style="max-height:190px;overflow:auto;border:1px solid #202a35;border-radius:8px;padding:.5rem .6rem;background:#0f141b;font-size:.65rem;">
+                {% for row in sample_data %}
+                    <strong>{{ row.Customer }}</strong><br>
+                    ID: {{ row.ID }} • Points: {{ row.RewardPoints }}<br>
+                    <em>Appointments</em><br>
+                    {% for a in row.Appointments %}
+                        • {{ a.Service }} – {{ a.Date }} ({{ a.Status }})<br>
+                    {% endfor %}
+                    <em>Orders</em><br>
+                    {% for o in row.Orders %}
+                        • {{ o.ID }} – {{ o.Date }} – {{ o.Status }} – ${{ o.Total }}<br>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </section>
+
+    <section>
+        <h2>Conversation</h2>
+        <div id="conversation"></div>
+    </section>
+</main>
+
+<footer>Voice Agent Demo • Real-time streaming with selectable devices</footer>
+
+<!-- Socket.IO client -->
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+<script>
+window.addEventListener('load', ()=> {
+
+    // ---- UI Elements ----
+    const initBtn      = document.getElementById('initBtn');
+    const startBtn     = document.getElementById('startBtn');
+    const stopBtn      = document.getElementById('stopBtn');
+    const inputSelect  = document.getElementById('inputSelect');
+    const outputSelect = document.getElementById('outputSelect');
+    const connDot      = document.getElementById('connDot');
+    const connText     = document.getElementById('connText');
+    const convo        = document.getElementById('conversation');
+    const logEl        = document.getElementById('log');
+    const micLevel     = document.getElementById('micLevel');
+    const micInfo      = document.getElementById('micInfo');
+
+    // Hidden audio element for playback (allows sink selection)
+    const playbackAudio = document.createElement('audio');
+    playbackAudio.autoplay = true;
+    playbackAudio.playsInline = true;
+    playbackAudio.style.display='none';
+    document.body.appendChild(playbackAudio);
+
+    // ---- State ----
+    let socket;
+    let audioCtx;
+    let captureNode;
+    let currentStream;
+    let running = false;
+    let sending = false;
+    const FRAME_SIZE = 512; // Low latency
+    const SR = 48000; // Browser input sample rate
+    const AGENT_SR = 16000; // Agent/Deepgram sample rate
+    let playbackBufferQueue = [];
+    let merging = false;
+
+    // ---- Utility ----
+    function log(msg){
+        const t = new Date().toLocaleTimeString();
+        logEl.textContent += `[${t}] ${msg}\n`;
+        logEl.scrollTop = logEl.scrollHeight;
+    }
+    function setStatus(ok){
+        connDot.classList.toggle('active', !!ok);
+        connText.textContent = ok ? 'Connected' : 'Disconnected';
+    }
+    function addMsg(role,text){
+        const d=document.createElement('div');
+        d.className='msg '+role;
+        d.textContent=`[${role}] ${text}`;
+        convo.appendChild(d);
+        convo.scrollTop=convo.scrollHeight;
+    }
+
+    // ---- Device Enumeration ----
+    async function enumerateDevices(preserve=true){
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const inputs  = devices.filter(d=>d.kind==='audioinput');
+        const outputs = devices.filter(d=>d.kind==='audiooutput');
+
+        const prevIn  = inputSelect.value;
+        const prevOut = outputSelect.value;
+
+        inputSelect.innerHTML  = '';
+        outputs.length ? null : null;
+        inputs.forEach(d=>{
+            const opt=document.createElement('option');
+            opt.value = d.deviceId;
+            opt.textContent = d.label || `Microphone (${d.deviceId.slice(0,6)})`;
+            inputSelect.appendChild(opt);
+        });
+        outputSelect.innerHTML = '';
+        outputs.forEach(d=>{
+            const opt=document.createElement('option');
+            opt.value = d.deviceId;
+            opt.textContent = d.label || `Output (${d.deviceId.slice(0,6)})`;
+            outputSelect.appendChild(opt);
+        });
+
+        if(preserve){
+            if([...inputSelect.options].some(o=>o.value===prevIn)){
+                inputSelect.value = prevIn;
+            }
+            if([...outputSelect.options].some(o=>o.value===prevOut)){
+                outputSelect.value = prevOut;
+            }
+        }
+
+        if(!inputSelect.value && inputs[0])  inputSelect.value  = inputs[0].deviceId;
+        if(!outputSelect.value && outputs[0]) outputSelect.value = outputs[0].deviceId;
+
+        inputSelect.disabled = inputs.length===0;
+        outputSelect.disabled = outputs.length===0;
+        log(`Devices refreshed (inputs: ${inputs.length}, outputs: ${outputs.length})`);
+
+        // Apply selected sink
+        setOutputSink(outputSelect.value);
+    }
+
+    async function setOutputSink(deviceId){
+        if(!('setSinkId' in HTMLMediaElement.prototype)){
+            log('setSinkId not supported in this browser.');
+            return;
+        }
+        if(!deviceId) return;
+        try {
+            await playbackAudio.setSinkId(deviceId);
+            log(`Playback sink set to ${deviceId}`);
+        } catch(e){
+            log(`Failed to set sink: ${e.message}`);
+        }
+    }
+
+    navigator.mediaDevices.addEventListener('devicechange', ()=>{
+        enumerateDevices(true).catch(err=>log('devicechange enumeration error: '+err.message));
+    });
+
+    // --- Downsampling helper ---
+    function downsampleBuffer(buffer, inputSampleRate, outputSampleRate) {
+        if (outputSampleRate === inputSampleRate) {
+            // Convert Float32 [-1,1] to Int16
+            const int16 = new Int16Array(buffer.length);
+            for (let i = 0; i < buffer.length; i++) {
+                let s = buffer[i];
+                if (s > 1) s = 1;
+                else if (s < -1) s = -1;
+                int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+            }
+            return int16;
+        }
+        const sampleRateRatio = inputSampleRate / outputSampleRate;
+        const newLength = Math.round(buffer.length / sampleRateRatio);
+        const result = new Int16Array(newLength);
+        let offsetResult = 0;
+        let offsetBuffer = 0;
+        while (offsetResult < result.length) {
+            const nextOffsetBuffer = Math.round((offsetResult + 1) * sampleRateRatio);
+            // Use average value between samples
+            let accum = 0, count = 0;
+            for (let i = offsetBuffer; i < nextOffsetBuffer && i < buffer.length; i++) {
+                accum += buffer[i];
+                count++;
+            }
+            result[offsetResult] = Math.max(-32768, Math.min(32767, accum / count * 32768));
+            offsetResult++;
+            offsetBuffer = nextOffsetBuffer;
+        }
+        return result;
+    }
+
+    function bufToB64(buf){
+        const bytes = new Uint8Array(buf);
+        let bin=''; for(let i=0;i<bytes.length;i++) bin+=String.fromCharCode(bytes[i]);
+        return btoa(bin);
+    }
+    function b64ToBytes(b64){
+      const bin = atob(b64);
+      const len = bin.length;
+      const buf = new Uint8Array(len);
+      for (let i = 0; i < len; i++) buf[i] = bin.charCodeAt(i);
+      return buf;
+    }
+
+
+    // ---- Playback Handling (WAV chunk method) ----
+    function queuePlaybackChunk(b64, sampleRate){
+        playbackBufferQueue.push({ b64, sampleRate });
+        if(!merging) playNext();
+    }
+
+    function playNext(){
+        if(!playbackBufferQueue.length){ merging=false; return; }
+        merging = true;
+        const { b64, sampleRate } = playbackBufferQueue.shift();
+        const bytes = b64ToBytes(b64);
+        // bytes represent raw PCM 16-bit mono
+        // Wrap into a minimal WAV for easier playback via <audio>
+        const wav = pcm16ToWav(bytes.buffer, sampleRate||16000);
+        const blob = new Blob([wav], { type:'audio/wav' });
+        const url = URL.createObjectURL(blob);
+        playbackAudio.src = url;
+        playbackAudio.onended = ()=>{
+            URL.revokeObjectURL(url);
+            merging = false;
+            playNext();
+        };
+        playbackAudio.play().catch(e=>log('Playback err: '+e.message));
+    }
+
+    function pcm16ToWav(buffer, sampleRate){
+        const pcmLength = buffer.byteLength;
+        const headerSize = 44;
+        const totalSize = headerSize + pcmLength;
+        const view = new DataView(new ArrayBuffer(totalSize));
+        let offset = 0;
+        function wStr(s){ for(let i=0;i<s.length;i++) view.setUint8(offset++, s.charCodeAt(i)); }
+        function w32(v){ view.setUint32(offset, v, true); offset+=4; }
+        function w16(v){ view.setUint16(offset, v, true); offset+=2; }
+
+        wStr('RIFF');
+        w32(totalSize - 8);
+        wStr('WAVE');
+        wStr('fmt ');
+        w32(16);        // PCM chunk size
+        w16(1);         // format = PCM
+        w16(1);         // channels
+        w32(sampleRate);
+        w32(sampleRate * 2); // byte rate (16-bit mono)
+        w16(2);         // block align
+        w16(16);        // bits per sample
+        wStr('data');
+        w32(pcmLength);
+        // PCM data
+        const pcmBytes = new Uint8Array(buffer);
+        for(let i=0;i<pcmBytes.length;i++) view.setUint8(offset++, pcmBytes[i]);
+        return view.buffer;
+    }
+
+    // ---- Socket ----
+    function connectSocket(){
+        socket = io({ transports:['websocket'], upgrade:false });
+        socket.on('connect', ()=>{ setStatus(true); log('Socket connected'); });
+        socket.on('disconnect', ()=>{ setStatus(false); log('Socket disconnected'); });
+        socket.on('conversation_update', data=>{
+            addMsg(data.role||'system', data.content||JSON.stringify(data));
+        });
+        // --- Seamless Audio Output Scheduling ---
+        let audioCtxOut = null;
+        let nextPlayTime = 0;
+        socket.on('audio_output', payload => {
+            if (payload && payload.audio) {
+                const sampleRate = payload.sampleRate || AGENT_SR;
+                const bytes = b64ToBytes(payload.audio);
+                const int16 = new Int16Array(bytes.buffer);
+                const float32 = new Float32Array(int16.length);
+                for (let i = 0; i < int16.length; i++) {
+                    float32[i] = int16[i] / 32768;
+                }
+                if (!audioCtxOut) {
+                    audioCtxOut = new (window.AudioContext || window.webkitAudioContext)({ sampleRate });
+                    nextPlayTime = audioCtxOut.currentTime;
+                }
+                const audioBuffer = audioCtxOut.createBuffer(1, float32.length, sampleRate);
+                audioBuffer.getChannelData(0).set(float32);
+                const source = audioCtxOut.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(audioCtxOut.destination);
+                const now = audioCtxOut.currentTime;
+                if (nextPlayTime < now) nextPlayTime = now;
+                source.start(nextPlayTime);
+                nextPlayTime += audioBuffer.duration;
+                source.onended = () => {};
+                if (payload.ts) {
+                    const rtt = Date.now() - payload.ts;
+                    log(`[audio] Played chunk: ${float32.length} samples, sampleRate=${sampleRate}, round-trip latency: ${rtt} ms`);
+                } else {
+                    log(`[audio] Played chunk: ${float32.length} samples, sampleRate=${sampleRate}`);
+                }
+            }
+        });
+    }
+
+    // ---- Audio Capture ---
+    async function startCapture(deviceId) {
+        if (currentStream) {
+            currentStream.getTracks().forEach(t => t.stop());
+            currentStream = null;
+        }
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SR });
+        } else if (audioCtx.state === 'suspended') {
+            await audioCtx.resume();
+        }
+        currentStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                deviceId: deviceId ? { exact: deviceId } : undefined,
+                channelCount: 1,
+                sampleRate: SR,
+                noiseSuppression: true,
+                echoCancellation: true,
+                autoGainControl: true
+            }
+        });
+        const source = audioCtx.createMediaStreamSource(currentStream);
+        if (captureNode) {
+            try { captureNode.disconnect(); } catch (_) { }
+        }
+        try {
+            if (!audioCtx.audioWorklet)
+                throw new Error("AudioWorklet not available");
+            if (!window._pcmWorkletLoaded) {
+                const workletCode = `
+                  class PCMCap extends AudioWorkletProcessor {
+                    process(inputs){
+                      const ch = inputs[0];
+                      if(ch && ch[0]) this.port.postMessage(ch[0]);
+                      return true;
+                    }
+                  }
+                  registerProcessor('pcm-cap', PCMCap);
+                `;
+                const blob = new Blob([workletCode], { type: 'application/javascript' });
+                await audioCtx.audioWorklet.addModule(URL.createObjectURL(blob));
+                window._pcmWorkletLoaded = true;
+            }
+            captureNode = new AudioWorkletNode(audioCtx, 'pcm-cap');
+            captureNode.port.onmessage = e => processFloat32(e.data);
+            source.connect(captureNode);
+            log('Using AudioWorklet for capture.');
+        } catch (e) {
+            log('Worklet fallback: ' + e.message);
+            const proc = audioCtx.createScriptProcessor(FRAME_SIZE, 1, 1);
+            proc.onaudioprocess = ev => processFloat32(ev.inputBuffer.getChannelData(0));
+            source.connect(proc).connect(audioCtx.destination);
+            captureNode = proc;
+        }
+    }
+
+    function processFloat32(f32) {
+        if (!running || !socket || socket.disconnected) return;
+        const int16 = downsampleBuffer(f32, SR, AGENT_SR);
+        const b64 = bufToB64(int16.buffer);
+        const ts = Date.now();
+        socket.emit('audio_data', { audio: b64, sampleRate: AGENT_SR, ts });
+        log(`[mic] Sent chunk: ${int16.length} samples, sampleRate=${AGENT_SR}, ts=${ts}`);
+        let sum = 0;
+        for (let i = 0; i < f32.length; i++) { const v = f32[i]; sum += v * v; }
+        const rms = Math.sqrt(sum / f32.length);
+        micLevel.style.width = Math.min(100, rms * 300) + '%';
+        micInfo.textContent = rms < 0.0007 ? 'Silence' : 'Speaking';
+    }
+
+    // ---- Button Actions ----
+    initBtn.addEventListener('click', async ()=>{
+        try{
+            log('Initializing audio...');
+            await startCapture();           // get default mic
+            await enumerateDevices(false);  // populate selects after permission
+            inputSelect.disabled = false;
+            outputSelect.disabled = false;
+            startBtn.disabled = false;
+            initBtn.disabled = true;
+            log('Audio initialized.');
+        }catch(e){
+            log('Init error: '+e.message);
+            alert('Microphone permission denied or error initializing audio.');
+        }
+    });
+
+    startBtn.addEventListener('click', ()=>{
+        if(running) return;
+        if(!socket || socket.disconnected) connectSocket();
+        socket.emit('start_voice_agent', {
+            browserAudio:true,
+            voiceModel:'aura-2-thalia-en',
+            voiceName:'',
+            inputDeviceId: inputSelect.value || null
+        });
+        running = true;
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        log('Agent start requested.');
+    });
+
+    stopBtn.addEventListener('click', ()=>{
+        if(!running) return;
+        socket.emit('stop_voice_agent');
+        running = false;
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        log('Agent stop requested.');
+    });
+
+    inputSelect.addEventListener('change', async ()=>{
+        log('Switching input device...');
+        try {
+            await startCapture(inputSelect.value);
+            log('Input switched.');
+        } catch(e){
+            log('Failed to switch input: '+e.message);
+        }
+    });
+
+    outputSelect.addEventListener('change', ()=>{
+        setOutputSink(outputSelect.value);
+    });
+
+    window.addEventListener('beforeunload', ()=>{
+        if(socket) socket.disconnect();
+        if(currentStream) currentStream.getTracks().forEach(t=>t.stop());
+        if(audioCtx) audioCtx.close();
+    });
+});
+</script>
+</body>
+</html>
