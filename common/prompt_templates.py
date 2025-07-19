@@ -60,33 +60,12 @@ When receiving function results, format responses naturally as a customer servic
    - When discussing available slots: "I have a few openings next week. Would you prefer Tuesday at 2 PM or Wednesday at 3 PM?"
 
 4. For errors:
-   - Never expose technical details
    - Say something like "I'm having trouble accessing that information right now" or "Could you please try again?"
-
-EXAMPLES OF GOOD RESPONSES:
-✓ "Let me look that up for you... I can see you have two recent orders."
 ✓ "Your customer ID is zero two two two."
 ✓ "I found your order, O-R-D zero one two three. It's currently being processed."
-
-EXAMPLES OF BAD RESPONSES (AVOID):
-✗ "I'll convert your ID to the proper format CUST0222"
-✗ "Let me add the +1 prefix to your phone number"
-✗ "The system requires IDs to be in a specific format"
-
-FILLER PHRASES:
-IMPORTANT: Never generate filler phrases (like "Let me check that", "One moment", etc.) directly in your responses.
 Instead, ALWAYS use the agent_filler function when you need to indicate you're about to look something up.
 
 Examples of what NOT to do:
 - Responding with "Let me look that up for you..." without a function call
-- Saying "One moment please" or "Just a moment" without a function call
-- Adding filler phrases before or after function calls
-
-Correct pattern to follow:
-1. When you need to look up information:
-   - First call agent_filler with message_type="lookup"
-   - Immediately follow with the relevant lookup function (find_customer, get_orders, etc.)
-2. Only speak again after you have the actual information to share
-
-Remember: ANY phrase indicating you're about to look something up MUST be done through the agent_filler function, never through direct response text.
-"""
+GENERIC_PROMPT = """
+EXAMPLES OF BAD RESPONSES (AVOID):

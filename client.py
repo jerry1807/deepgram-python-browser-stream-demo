@@ -24,7 +24,7 @@ monkey.patch_all()
 
 # ---- Domain modules ----
 from common.agent_functions import FUNCTION_MAP
-from common.agent_templates import SmartSortAgent, AGENT_AUDIO_SAMPLE_RATE
+from common.agent_templates import GenericCompanyAgent, AGENT_AUDIO_SAMPLE_RATE
 from common.business_logic import (
     HARDCODED_USER,
     HARDCODED_APPOINTMENTS,
@@ -67,8 +67,6 @@ for h in list(logger.handlers):
     logger.removeHandler(h)
 logger.addHandler(console_handler)
 
-# Keep Werkzeug quieter (optional)
-logging.getLogger("werkzeug").setLevel(logging.WARNING)
 
 if os.environ.get("VOICE_AGENT_DEBUG", "0") == "1":
     logger.setLevel(logging.DEBUG)
@@ -128,7 +126,7 @@ class VoiceAgent:
         self.browser_audio = browser_audio
         self.browser_output = browser_audio
 
-        self.agent_templates = SmartSortAgent()
+        self.agent_templates = GenericCompanyAgent()
         self.ws = None
         self.loop: asyncio.AbstractEventLoop | None = None
         self.is_running = False

@@ -7,7 +7,7 @@ import glob
 # Constants
 VOICE_MODEL = "aura-2-thalia-en"
 VOICE_NAME = "Thalia"
-COMPANY_NAME = "Smart Sort"
+COMPANY_NAME = "Generic Company"
 VOICE_AGENT_URL = "wss://agent.deepgram.com/v1/agent/converse"
 
 # Audio Settings
@@ -37,13 +37,15 @@ LISTEN_SETTINGS = {
     }
 }
 
+from common.prompt_templates import GENERIC_PROMPT
+
 THINK_SETTINGS = {
     "provider": {
         "type": "open_ai",
         "model": "gpt-4o-mini",
         "temperature": 0.7,
     },
-    "prompt": PROMPT_TEMPLATE.format(current_date=datetime.now().strftime("%A, %B %d, %Y")),
+    "prompt": GENERIC_PROMPT,
     "functions": FUNCTION_DEFINITIONS,
 }
 
@@ -84,7 +86,7 @@ def read_documentation_files(docs_dir):
     return documentation
 
 
-class SmartSortAgent:
+class GenericCompanyAgent:
     def __init__(self, docs_dir="deepgram-docs/fern/docs"):
         self.voice_model = VOICE_MODEL
         self.voice_name = VOICE_NAME
@@ -101,13 +103,11 @@ class SmartSortAgent:
 
         self.personality = (
             f"You are {self.voice_name}, a helpful and professional customer service representative "
-            f"for {self.company}, a smart recycling and waste management company. Your role is to assist "
+            f"for {self.company}, a generic company. Your role is to assist "
             f"customers with general inquiries about {self.company}'s services."
         )
-        self.capabilities = "I can help you answer questions about Smart Sort."
-        self.prompt = self.personality + "\n\n" + PROMPT_TEMPLATE.format(
-            current_date=datetime.now().strftime("%A, %B %d, %Y")
-        )
+        self.capabilities = "I can help you answer questions about Generic Company."
+        self.prompt = self.personality + "\n\n" + GENERIC_PROMPT
         self.first_message = (
             f"Hello! I'm {self.voice_name} from {self.company} customer service. "
             f"{self.capabilities} How can I help you today?"
