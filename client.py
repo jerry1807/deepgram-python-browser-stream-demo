@@ -637,7 +637,7 @@ def index():
 
 @app.route("/tts-models")
 def tts_models():
-    api_key = "62def0462d87a24025a65952c42bf23c497e9cff"
+    api_key = os.environ.get("DEEPGRAM_API_KEY")
     if not api_key:
         return jsonify({"error": "DEEPGRAM_API_KEY not set"}), 500
     try:
